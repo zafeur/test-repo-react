@@ -1,0 +1,19 @@
+name: ChatGPT Automated Writer
+
+on:
+  push:
+    branches: [ main ] # S'exécute à chaque fois que vous modifiez la branche principale
+
+jobs:
+  ai-generation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code Base
+        uses: actions/checkout@v4
+
+      - name: Trigger ChatGPT Automation Action
+        uses: ciit-digital/chatgpt-action@v1
+        with:
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          model: "gpt-4o"
+          prompt: "Génère automatiquement ou mets à jour un fichier README.md clair en français pour décrire ce projet React."
