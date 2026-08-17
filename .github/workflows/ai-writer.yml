@@ -11,20 +11,52 @@ jobs:
       - name: Checkout Code Base
         uses: actions/checkout@v4
 
-      - name: Generate README with ChatGPT API
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Call OpenAI API safely
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          RESPONSE=$(curl -s https://openai.com \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $OPENAI_API_KEY" \
-            -d '{
-              "model": "gpt-4o-mini",
-              "messages": [{"role": "user", "content": "Génère un fichier README.md complet, professionnel et clair en français pour décrire un projet React standard. Donne uniquement le contenu du markdown, sans balise de code entourant le résultat."}]
-            }')
-          
-          # Extraction du texte de la réponse JSON et création du fichier
-          echo "$RESPONSE" | jq -r '.choices[0].message.content' > README.md
+          node -e "
+          const fs = require('fs');
+          async function run() {
+            try {
+              if (!process.env.OPENAI_API_KEY) {
+                console.error('Erreur : La clé OPENAI_API_KEY est manquante dans les secrets !');
+                process.exit(1);
+              }
+              
+              const res = await fetch('https://openai.com', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer ' + process.env.OPENAI_API_KEY
+                },
+                body: JSON.stringify({
+                  model: 'gpt-4o-mini',
+                  messages: [{role: 'user', content: 'Génère un fichier README.md propre et concis en français pour un projet React standard.'}]
+                })
+              });
+              
+              const data = await res.json();
+              if (data.error) {
+                console.error('Erreur API OpenAI:', data.error.message);
+                process.exit(1);
+              }
+              
+              const content = data.choices[0].message.content;
+              fs.writeFileSync('README.md', content);
+              console.log('Fichier README.md généré avec succès !');
+            } catch (err) {
+              console.error('Erreur d\'exécution du script:', err);
+              process.exit(1);
+            }
+          }
+          run();
+          "
 
       - name: Commit and Push README
         run: |
