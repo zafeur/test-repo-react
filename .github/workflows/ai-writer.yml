@@ -8,21 +8,29 @@ jobs:
   ai-generation:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code Base
+      - name: Checkout Code Base (Fast Shallow Clone)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1 # Récupère uniquement le dernier commit (gain de temps massif)
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Diagnostic OpenAI API
+      - name: Call OpenAI API safely
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           node -e "
-          async function test() {
+          const fs = require('fs');
+          async function run() {
             try {
+              if (!process.env.OPENAI_API_KEY) {
+                console.error('Erreur : La clé OPENAI_API_KEY est manquante dans les secrets !');
+                process.exit(1);
+              }
+              
               const res = await fetch('https://openai.com', {
                 method: 'POST',
                 headers: {
@@ -31,19 +39,31 @@ jobs:
                 },
                 body: JSON.stringify({
                   model: 'gpt-4o-mini',
-                  messages: [{role: 'user', content: 'Test'}]
+                  messages: [{role: 'user', content: 'Génère un fichier README.md propre et concis en français pour un projet React standard.'}]
                 })
               });
               
-              console.log('Statut HTTP reçu :', res.status, res.statusText);
-              const text = await res.text();
-              console.log('--- DEBUT DE LA REPONSE DU SERVEUR ---');
-              console.log(text.substring(0, 1000)); // Affiche les 1000 premiers caractères
-              console.log('--- FIN DE LA REPONSE ---');
-              process.exit(1); // On force l'arrêt pour lire le texte
+              const data = await res.json();
+              if (data.error) {
+                console.error('Erreur API OpenAI:', data.error.message);
+                process.exit(1);
+              }
+              
+              const content = data.choices.message.content;
+              fs.writeFileSync('README.md', content);
+              console.log('Fichier README.md généré avec succès !');
             } catch (err) {
-              console.error('Erreur réseau :', err);
+              console.error('Erreur d\'exécution du script:', err);
+              process.exit(1);
             }
           }
-          test();
+          run();
           "
+
+      - name: Commit and Push README
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "Ajout automatique du README par ChatGPT" || echo "Pas de changements"
+          git push
