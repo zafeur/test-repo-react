@@ -11,12 +11,7 @@ jobs:
       - name: Checkout Code Base (Fast Shallow Clone)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1 # Récupère uniquement le dernier commit (gain de temps massif)
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+          fetch-depth: 1
 
       - name: Call OpenAI API safely
         env:
